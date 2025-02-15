@@ -7,6 +7,9 @@
 #define TFT_RST   D3
 #define TFT_DC    D4
 
+#define BTN_LEFT  D1
+#define BTN_RIGHT D2
+
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 GFXcanvas16 canvas(128, 160);
 
@@ -30,12 +33,27 @@ void drawGameScreen()
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), 128, 160);
 }
 
+void handleButtonInputs()
+{
+  if (digitalRead(BTN_LEFT) == LOW && playerX > 3) {
+    playerX -= 3;
+  }
+
+  if (digitalRead(BTN_RIGHT) == LOW && playerX < 120) {
+    playerX += 3;
+  }
+}
+
 void setup()
 {  
+  pinMode(BTN_LEFT, INPUT_PULLUP);
+  pinMode(BTN_RIGHT, INPUT_PULLUP);
+
   setupScreen();
 }
 
 void loop()
 {
   drawGameScreen();
+  handleButtonInputs();
 }
