@@ -9,6 +9,7 @@
 
 #define BTN_LEFT  D1
 #define BTN_RIGHT D2
+#define BTN_SHOOT 3
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 GFXcanvas16 canvas(128, 160);
@@ -17,8 +18,23 @@ const unsigned char playerSprite [] PROGMEM = {
 	0x30, 0x30, 0x78, 0x78, 0xfc, 0xfc, 0xcc
 };
 
+const uint16_t drone [] PROGMEM = {
+	0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 
+	0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 
+	0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 
+	0xffff, 0xffff, 0xffff, 0x001f, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x001f, 0xffff, 0xffff, 0xffff, 0x001f, 0x0000, 
+	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x001f, 0xffff, 0xffff, 0xffff, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 
+	0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 
+	0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 
+	0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 0x001f
+};
+
 unsigned int playerX = 58;
 unsigned int playerY = 145;
+
+unsigned int bulletX = 0;
+unsigned int bulletY = 0;
+bool bulletActive = false;
 
 void setupScreen()
 {
@@ -26,10 +42,38 @@ void setupScreen()
   tft.fillScreen(ST7735_BLACK);
 }
 
+void resetBullet()
+{
+  bulletX = 0;
+  bulletY = 0;
+  bulletActive = false;
+}
+
+void moveBullet()
+{
+  Serial.println(bulletY);
+
+  if (bulletActive && bulletY > 3) {
+    bulletY -= 3;
+    return;
+  }
+
+  resetBullet();
+}
+
 void drawGameScreen()
 {
   canvas.fillScreen(ST7735_BLACK);
   canvas.drawBitmap(playerX, playerY, playerSprite, 6, 7, ST7735_WHITE);
+
+  if (bulletActive) {
+    canvas.fillRect(bulletX, bulletY, 2, 4, ST7735_WHITE);
+  }
+
+  for (int i = 0; i < 8; i++) {
+    
+  }
+
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), 128, 160);
 }
 
@@ -42,18 +86,26 @@ void handleButtonInputs()
   if (digitalRead(BTN_RIGHT) == LOW && playerX < 120) {
     playerX += 3;
   }
+
+  if (digitalRead(BTN_SHOOT) == LOW && bulletActive == false) {
+    bulletX = playerX + 2;
+    bulletY = playerY - 8;
+    bulletActive = true;
+  }
 }
 
 void setup()
 {  
   pinMode(BTN_LEFT, INPUT_PULLUP);
   pinMode(BTN_RIGHT, INPUT_PULLUP);
+  pinMode(BTN_SHOOT, INPUT_PULLUP);
 
   setupScreen();
 }
 
 void loop()
 {
-  drawGameScreen();
   handleButtonInputs();
+  moveBullet();
+  drawGameScreen();
 }
