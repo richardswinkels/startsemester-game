@@ -18,7 +18,7 @@ const unsigned char playerSprite [] PROGMEM = {
 	0x30, 0x30, 0x78, 0x78, 0xfc, 0xfc, 0xcc
 };
 
-const uint16_t drone [] PROGMEM = {
+const uint16_t droneSprite [] PROGMEM = {
 	0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 
 	0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 0x001f, 0x001f, 
 	0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x001f, 0x0000, 0x0000, 0x0000, 0x001f, 
@@ -36,6 +36,14 @@ unsigned int bulletX = 0;
 unsigned int bulletY = 0;
 bool bulletActive = false;
 
+struct Drone {
+  unsigned int posX;
+  unsigned int posY;
+  bool isActive;
+};
+
+struct Drone droneList[32];
+
 void setupScreen()
 {
   tft.initR(INITR_18BLACKTAB);
@@ -47,6 +55,22 @@ void resetBullet()
   bulletX = 0;
   bulletY = 0;
   bulletActive = false;
+}
+
+void initDrones()
+{
+  int droneIndex = 0;
+
+  for (int row = 0; row < 4; row++) {
+    for (int col = 0; col < 8; col++) {
+      droneList[droneIndex].posX = 6 + col * 15;
+      droneList[droneIndex].posY = 20 + row * 15;
+
+      droneList[droneIndex].isActive = true;
+
+      droneIndex++;
+    }
+  }
 }
 
 void moveBullet()
@@ -61,8 +85,26 @@ void moveBullet()
   resetBullet();
 }
 
+void checkCollisions()
+{
+  int droneListLength = sizeof(droneList) / sizeof(droneList[0]);
+
+  for (int i = 0; i < droneListLength; i++) {
+    if (droneList[i].isActive &&
+      bulletX + 2 >= droneList[i].posX && 
+      bulletX <= droneList[i].posX + 11 && 
+      bulletY + 4 >= droneList[i].posY && 
+      bulletY <= droneList[i].posY + 11) {
+      droneList[i].isActive = false;
+      resetBullet();
+    }
+  }
+}
+
 void drawGameScreen()
 {
+  int droneListLength = sizeof(droneList) / sizeof(droneList[0]);
+
   canvas.fillScreen(ST7735_BLACK);
   canvas.drawBitmap(playerX, playerY, playerSprite, 6, 7, ST7735_WHITE);
 
@@ -70,8 +112,10 @@ void drawGameScreen()
     canvas.fillRect(bulletX, bulletY, 2, 4, ST7735_WHITE);
   }
 
-  for (int i = 0; i < 8; i++) {
-    
+  for (int i = 0; i < droneListLength; i++) {
+    if (droneList[i].isActive) {
+    canvas.drawRGBBitmap(droneList[i].posX, droneList[i].posY, droneSprite, 11, 11);
+    }
   }
 
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), 128, 160);
@@ -100,6 +144,7 @@ void setup()
   pinMode(BTN_RIGHT, INPUT_PULLUP);
   pinMode(BTN_SHOOT, INPUT_PULLUP);
 
+  initDrones();
   setupScreen();
 }
 
@@ -107,5 +152,6 @@ void loop()
 {
   handleButtonInputs();
   moveBullet();
+  checkCollisions();
   drawGameScreen();
 }
