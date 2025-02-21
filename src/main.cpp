@@ -497,10 +497,7 @@ class SceneManager {
   public:
     void switchScene(Scene& scene) {
       currentScene = &scene;
-    }
-
-    void setup() {
-      if (currentScene) currentScene->setup();
+      currentScene->setup();
     }
 
     void update() {
@@ -517,9 +514,7 @@ class StartGameScene: public Scene {
       if (digitalRead(BTN_LEFT) == LOW ||
           digitalRead(BTN_RIGHT) == LOW ||
           digitalRead(BTN_SHOOT) == LOW) {
-          delay(200);
-          sceneManager.switchScene(gameScene);
-          sceneManager.setup();
+        sceneManager.switchScene(gameScene);
       }
     }
 
@@ -559,7 +554,6 @@ void setup()
   pinMode(BTN_RIGHT, INPUT_PULLUP);
   pinMode(BTN_SHOOT, INPUT_PULLUP);
   sceneManager.switchScene(startGameScene);
-  sceneManager.setup();
 }
 
 void loop()
