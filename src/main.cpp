@@ -1150,7 +1150,6 @@ void setupScreen()
 
 void setup()
 {
-  Serial.begin(9600);
   setupScreen();
   btnLeft.init();
   btnRight.init();
