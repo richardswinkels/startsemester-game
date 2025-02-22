@@ -512,6 +512,39 @@ const uint16_t heartSprite [] PROGMEM = {
 	0x0000, 0x0000, 0x0000, 0x0000, 0xf800, 0xf800, 0x0000, 0x0000, 0x0000, 0x0000
 };
 
+class Button {
+  private:
+    int pin;
+    unsigned long lastPressTime = 0;
+    const unsigned long debounceDelay = 50;
+
+  public:
+    Button(int btnPin) {
+      pin = btnPin;
+    }
+
+    void init() {
+      pinMode(pin, INPUT_PULLUP);  // Set the button pin as input with pull-up resistor
+    }
+
+    bool isPressed() {
+      unsigned long currentMillis = millis();
+
+      if (currentMillis - lastPressTime > debounceDelay) {
+        if (digitalRead(pin) == LOW) {
+          lastPressTime = currentMillis;
+          return true;
+        }
+      }
+
+      return false;
+    }
+};
+
+Button btnLeft(BTN_LEFT);
+Button btnRight(BTN_RIGHT);
+Button btnShoot(BTN_SHOOT);
+
 enum class GameSceneList {
     StartScene,
     GameScene,
@@ -804,15 +837,15 @@ class Game {
 
     void handleInput()
     {
-      if (digitalRead(BTN_LEFT) == LOW) {
+      if (btnLeft.isPressed()) {
         player.move(-1);
       }
     
-      if (digitalRead(BTN_RIGHT) == LOW) {
+      if (btnRight.isPressed()) {
         player.move(1);
       }
 
-      if (digitalRead(BTN_SHOOT) == LOW) {
+      if (btnShoot.isPressed()) {
         player.shoot(playerBullet);
       }
     }
@@ -846,9 +879,9 @@ class Game {
 
       shootEnemyBullets();
 
-	  if (isGameOver()) {
-		currentGameScene = GameSceneList::GameOverScene;
-	  }
+	    if (isGameOver()) {
+		    currentGameScene = GameSceneList::GameOverScene;
+	    }
     }
 
     void checkCollisions()
@@ -910,23 +943,23 @@ Game game;
 class GameScene: public Scene {
 	protected:
 	  void handleInput() {
-		game.handleInput();
+		  game.handleInput();
 	  }
   
 	  void render() {
-		game.render();
+		  game.render();
 	  }
   
 	public:
 	  void setup() {
-		game.init();
+		  game.init();
 	  }
   
 	  void update() {
-		handleInput();
-		game.update();
-		game.checkCollisions();
-		render();
+      handleInput();
+      game.update();
+      game.checkCollisions();
+      render();
 	  }
   };
   
@@ -935,10 +968,9 @@ GameScene gameScene;
 class StartGameScene: public Scene {
   protected:
     void handleInput() {
-      if (digitalRead(BTN_LEFT) == LOW ||
-          digitalRead(BTN_RIGHT) == LOW ||
-          digitalRead(BTN_SHOOT) == LOW) {
-			Serial.print("test");
+      if (btnLeft.isPressed() ||
+          btnRight.isPressed() ||
+          btnShoot.isPressed()) {
         currentGameScene = GameSceneList::GameScene;
       }
     }
@@ -969,11 +1001,11 @@ StartGameScene startGameScene;
 class GameOverScene: public Scene {
 	protected:
 	  void handleInput() {
-		if (digitalRead(BTN_LEFT) == LOW ||
-			digitalRead(BTN_RIGHT) == LOW ||
-			digitalRead(BTN_SHOOT) == LOW) {
-		  currentGameScene = GameSceneList::StartScene;
-		}
+		  if (btnLeft.isPressed() ||
+        btnRight.isPressed() ||
+        btnShoot.isPressed()) {
+		    currentGameScene = GameSceneList::StartScene;
+		  }
 	  }
   
 	  void render() {
@@ -1019,9 +1051,9 @@ void setup()
 {  
   Serial.begin(9600);
   setupScreen();
-  pinMode(BTN_LEFT, INPUT_PULLUP);
-  pinMode(BTN_RIGHT, INPUT_PULLUP);
-  pinMode(BTN_SHOOT, INPUT_PULLUP);
+  btnLeft.init();
+  btnRight.init();
+  btnShoot.init();
 }
 
 void loop()
