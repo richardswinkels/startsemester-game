@@ -512,6 +512,14 @@ const uint16_t heartSprite [] PROGMEM = {
 	0x0000, 0x0000, 0x0000, 0x0000, 0xf800, 0xf800, 0x0000, 0x0000, 0x0000, 0x0000
 };
 
+enum class GameSceneList {
+    StartScene,
+    GameScene,
+    GameOverScene
+};
+
+GameSceneList currentGameScene = GameSceneList::StartScene;
+
 class Scene {
   protected:
     virtual void handleInput() = 0;
@@ -521,6 +529,25 @@ class Scene {
     virtual void setup() = 0;
     virtual void update() = 0;
 };
+
+class SceneManager {
+  private:
+    Scene* currentScene = nullptr;
+
+  public:
+    void switchScene(Scene &scene) {
+	  if (currentScene != &scene) {
+        currentScene = &scene;
+        currentScene->setup();
+	  }
+    }
+
+    void update() {
+      if (currentScene) currentScene->update();
+    }
+};
+
+SceneManager sceneManager;
 
 class GameEntity {
   protected:
@@ -553,35 +580,6 @@ class GameEntity {
     }
 
     virtual void draw() = 0;
-};
-
-class Drone: public GameEntity {
-  private:
-    bool isActive;
-
-  public:
-    Drone() {
-      width = 11;
-      height = 11;
-      speed = 5;
-      isActive = false;
-    }
-
-    void disable() {
-      isActive = false;
-    }
-
-    void enable() {
-      isActive = true;
-    }
-
-    bool getActiveState() {
-      return isActive;
-    }
-
-    void draw() {
-      canvas.drawRGBBitmap(posX, posY, droneSprite, width, height);
-    }
 };
 
 class Bullet: public GameEntity {
@@ -619,10 +617,47 @@ class Bullet: public GameEntity {
     }
 };
 
+class Drone: public GameEntity {
+  private:
+    bool isActive;
+
+  public:
+    Drone() {
+      width = 11;
+      height = 11;
+      speed = 5;
+      isActive = false;
+    }
+
+    void disable() {
+      isActive = false;
+    }
+
+    void enable() {
+      isActive = true;
+    }
+
+    bool getActiveState() {
+      return isActive;
+    }
+
+    void shoot(Bullet& bullet) {
+      if (! bullet.getActiveState()) {
+        bullet.activate();
+        bullet.setPosition(posX + 5, posY + height);
+      }
+    }
+
+    void draw() {
+      canvas.drawRGBBitmap(posX, posY, droneSprite, width, height);
+    }
+};
+
 class Player: public GameEntity {
   private:
     int score = 0;
     int lives = 0;
+    int bulletsShot = 0;
   
   public:
     Player() {
@@ -658,6 +693,7 @@ class Player: public GameEntity {
       if (! bullet.getActiveState()) {
         bullet.activate();
         bullet.setPosition(posX + 2, posY - height);
+        bulletsShot++;
       }
     }
 
@@ -671,7 +707,8 @@ class Game {
     Player player;
     Drone drones[4][8];
     Bullet playerBullet;
-    Bullet bullets[3];
+    Bullet enemyBullets[4];
+    ulong timeEllapsed;
 
     void initDrones() {
       for (int row = 0; row < 4; row++) {
@@ -694,7 +731,63 @@ class Game {
     void drawLives()
     {
       for (int col = 0; col < player.getLives(); col++) {
-        canvas.drawRGBBitmap(115 - (10+4) * col, 5, heartSprite, 10, 9);
+        canvas.drawRGBBitmap(115 - (10 + 4) * col, 5, heartSprite, 10, 9);
+      }
+    }
+
+    void drawEnemyBullets()
+    {
+      for (int i = 0; i < 3; i++) {
+        enemyBullets[i].draw();
+      }
+    }
+
+    Drone* getRandomActiveDrone() {
+      uint activeDroneIndexes[32][2];
+      uint activeDroneCount = 0;
+  
+      for (int row = 0; row < 4; row++) {
+          for (int col = 0; col < 8; col++) {
+              if (drones[row][col].getActiveState()) {
+                activeDroneIndexes[activeDroneCount][0] = row;
+                activeDroneIndexes[activeDroneCount][1] = col;
+                activeDroneCount++;
+              }
+          }
+      }
+  
+      if (activeDroneCount == 0) {
+          return nullptr;
+      }
+  
+      uint randomIndex = random(0, activeDroneCount);
+      uint randomRow = activeDroneIndexes[randomIndex][0];
+      uint randomCol = activeDroneIndexes[randomIndex][1];
+  
+      return &drones[randomRow][randomCol];
+    }
+
+    void shootEnemyBullets()
+    {
+      ulong currentMillis = millis();
+      
+      if (currentMillis - timeEllapsed >= 1000) {
+        timeEllapsed = currentMillis;
+
+        for (int i = 0; i < random(1, 4); i++) {
+          Drone* drone = getRandomActiveDrone();
+
+          if (drone) {
+            for (int j = 0; j < 3; j++) {
+              Bullet& bullet = enemyBullets[j];
+
+            if (!bullet.getActiveState()) {
+                drone->shoot(enemyBullets[j]);
+                break; 
+              }
+            }
+          }
+        }
       }
     }
 
@@ -704,6 +797,10 @@ class Game {
       player.setLives(3);
       initDrones();
     }
+
+    bool isGameOver() {
+      return player.getLives() == 0;
+    }  
 
     void handleInput()
     {
@@ -725,6 +822,13 @@ class Game {
       if (playerBullet.getActiveState()) playerBullet.move(0, 1);
       if (playerBullet.getPosY() < 0) playerBullet.disable();
 
+      for (int i = 0; i < 3; i++) {
+        Bullet& bullet = enemyBullets[i];
+      
+        if (bullet.getActiveState()) bullet.move(0, -1);
+        if (bullet.getPosY() > 160) bullet.disable();
+      }
+
       int count = 0;
 
       for (int row = 0; row < 4; row++) {
@@ -739,6 +843,12 @@ class Game {
         delay(500);
         initDrones();
       }
+
+      shootEnemyBullets();
+
+	  if (isGameOver()) {
+		currentGameScene = GameSceneList::GameOverScene;
+	  }
     }
 
     void checkCollisions()
@@ -746,16 +856,30 @@ class Game {
       for (int row = 0; row < 4; row++) {
         for (int col = 0; col < 8; col++) {
           Drone& drone = drones[row][col];
+
           if (drone.getActiveState() &&
               playerBullet.getActiveState() &&
               playerBullet.getPosX() + playerBullet.getWidth() >= drone.getPosX() &&
               playerBullet.getPosX() <= drone.getPosX() + drone.getWidth() &&
-              playerBullet.getPosY() + playerBullet.getHeight() >= drone.getPosY() + drone.getHeight() &&
+              playerBullet.getPosY() + playerBullet.getHeight() >= drone.getPosY() &&
               playerBullet.getPosY() <= drone.getPosY() + drone.getHeight()) {
             drone.disable();    
             playerBullet.disable();
             player.setScore(player.getScore() + 10);
           }
+        }
+      }
+
+      for (int i = 0; i < 3; i++) {
+        Bullet& bullet = enemyBullets[i];
+        
+        if (bullet.getActiveState() && 
+            bullet.getPosX() + bullet.getWidth() >= player.getPosX() &&
+            bullet.getPosX() <= player.getPosX() + player.getWidth() &&
+            bullet.getPosY() + bullet.getHeight() >= player.getPosY() + player.getHeight() &&
+            bullet.getPosY() <= player.getPosY() + player.getHeight()) {
+          bullet.disable();
+          player.setLives(player.getLives() - 1);
         }
       }
     }
@@ -766,6 +890,7 @@ class Game {
       playerBullet.draw();
       drawDrones();
       drawLives();
+      drawEnemyBullets();
 
       canvas.setCursor(5, 5);
       canvas.setTextColor(ST7735_WHITE);
@@ -782,46 +907,29 @@ class Game {
 
 Game game;
 
-class SceneManager {
-  private:
-    Scene* currentScene = nullptr;
-
-  public:
-    void switchScene(Scene& scene) {
-      currentScene = &scene;
-      currentScene->setup();
-    }
-
-    void update() {
-      if (currentScene) currentScene->update();
-    }
-};
-
-SceneManager sceneManager;
-
 class GameScene: public Scene {
-  protected:
-    void handleInput() {
-      game.handleInput();
-    }
-
-    void render() {
-      game.render();
-    }
-
-  public:
-    void setup() {
-      game.init();
-    }
-
-    void update() {
-      handleInput();
-      game.update();
-      game.checkCollisions();
-      render();
-    }
-};
-
+	protected:
+	  void handleInput() {
+		game.handleInput();
+	  }
+  
+	  void render() {
+		game.render();
+	  }
+  
+	public:
+	  void setup() {
+		game.init();
+	  }
+  
+	  void update() {
+		handleInput();
+		game.update();
+		game.checkCollisions();
+		render();
+	  }
+  };
+  
 GameScene gameScene;
 
 class StartGameScene: public Scene {
@@ -830,7 +938,8 @@ class StartGameScene: public Scene {
       if (digitalRead(BTN_LEFT) == LOW ||
           digitalRead(BTN_RIGHT) == LOW ||
           digitalRead(BTN_SHOOT) == LOW) {
-        sceneManager.switchScene(gameScene);
+			Serial.print("test");
+        currentGameScene = GameSceneList::GameScene;
       }
     }
 
@@ -858,47 +967,47 @@ class StartGameScene: public Scene {
 StartGameScene startGameScene;
 
 class GameOverScene: public Scene {
-  protected:
-    void handleInput() {
-      if (digitalRead(BTN_LEFT) == LOW ||
-          digitalRead(BTN_RIGHT) == LOW ||
-          digitalRead(BTN_SHOOT) == LOW) {
-        sceneManager.switchScene(startGameScene);
-      }
-    }
-
-    void render() {
-      tft.drawRGBBitmap(0, 0, canvas.getBuffer(), 128, 160);
-    }
-
-    void drawCenteredText(const char* text, int y) {
-      int16_t  x1, y1;
-      uint16_t w, h;
-
-      canvas.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
-    
-      canvas.setCursor((canvas.width() - w) / 2, y);
-      canvas.print(text);
-  }
-
-  public:
-    void setup() {
-      canvas.fillScreen(ST7735_BLACK);
-      canvas.setTextColor(ST7735_WHITE);
-      canvas.setTextSize(1);
-      int score = game.getPlayer()->getScore();
-      drawCenteredText("Score", 112);
-      drawCenteredText(String(score).c_str(), 128);
-      canvas.drawRGBBitmap(16, 40, gameOverText, 94, 46);
-    }
-
-    void update() {
-      handleInput();
-      render();
-    }
-};
-
-GameOverScene gameOverScene;
+	protected:
+	  void handleInput() {
+		if (digitalRead(BTN_LEFT) == LOW ||
+			digitalRead(BTN_RIGHT) == LOW ||
+			digitalRead(BTN_SHOOT) == LOW) {
+		  currentGameScene = GameSceneList::StartScene;
+		}
+	  }
+  
+	  void render() {
+		tft.drawRGBBitmap(0, 0, canvas.getBuffer(), 128, 160);
+	  }
+  
+	  void drawCenteredText(const char* text, int y) {
+		int16_t  x1, y1;
+		uint16_t w, h;
+  
+		canvas.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+	  
+		canvas.setCursor((canvas.width() - w) / 2, y);
+		canvas.print(text);
+	}
+  
+	public:
+	  void setup() {
+		canvas.fillScreen(ST7735_BLACK);
+		canvas.setTextColor(ST7735_WHITE);
+		canvas.setTextSize(1);
+		int score = game.getPlayer()->getScore();
+		drawCenteredText("Score", 112);
+		drawCenteredText(String(score).c_str(), 128);
+		canvas.drawRGBBitmap(16, 40, gameOverText, 94, 46);
+	  }
+  
+	  void update() {
+		handleInput();
+		render();
+	  }
+  };
+  
+  GameOverScene gameOverScene;
 
 void setupScreen()
 {
@@ -908,14 +1017,26 @@ void setupScreen()
 
 void setup()
 {  
+  Serial.begin(9600);
   setupScreen();
   pinMode(BTN_LEFT, INPUT_PULLUP);
   pinMode(BTN_RIGHT, INPUT_PULLUP);
   pinMode(BTN_SHOOT, INPUT_PULLUP);
-  sceneManager.switchScene(startGameScene);
 }
 
 void loop()
 {
+	switch (currentGameScene) {
+		case GameSceneList::StartScene:
+			sceneManager.switchScene(startGameScene);
+			break;
+		case GameSceneList::GameScene:
+			sceneManager.switchScene(gameScene);
+			break;
+		case GameSceneList::GameOverScene:
+			sceneManager.switchScene(gameOverScene);
+			break;
+	}
+
   sceneManager.update();
 }
