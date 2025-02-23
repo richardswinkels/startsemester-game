@@ -738,6 +738,11 @@ public:
     lives = l;
   }
 
+  void setBulletsShot(int b)
+  {
+    bulletsShot = b;
+  }
+
   int getBulletsShot()
   {
     return bulletsShot;
@@ -908,6 +913,7 @@ private:
 public:
   void init()
   {
+    player.setBulletsShot(0);
     player.setScore(0);
     player.setPosition(58, 140);
     player.setLives(3);
@@ -1174,7 +1180,7 @@ void setupScreen()
 void setup()
 {
   Serial.begin(9600);
-  WiFi.begin("", "");
+  WiFi.begin("GameNet", "SpaceInvadersR70Swinkels");
   setupScreen();
   btnLeft.init();
   btnRight.init();
