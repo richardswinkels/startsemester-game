@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <ArduinoJson.h>
 #include <SPI.h>
 
 #define TFT_CS D8
@@ -510,9 +513,9 @@ const uint16_t heartSprite[] PROGMEM = {
 class Button
 {
 private:
-  int pin;
-  unsigned long lastPressTime = 0;
-  const unsigned long debounceDelay = 50;
+  uint pin;
+  ulong lastPressTime = 0;
+  const ulong debounceDelay = 50;
 
 public:
   Button(int btnPin)
@@ -527,15 +530,13 @@ public:
 
   bool isPressed()
   {
-    unsigned long currentMillis = millis();
+    ulong currentMillis = millis();
 
-    if (currentMillis - lastPressTime > debounceDelay)
+    if (currentMillis - lastPressTime > debounceDelay &&
+        digitalRead(pin) == LOW)
     {
-      if (digitalRead(pin) == LOW)
-      {
-        lastPressTime = currentMillis;
-        return true;
-      }
+      lastPressTime = currentMillis;
+      return true;
     }
 
     return false;
@@ -558,8 +559,8 @@ GameSceneList currentGameScene = GameSceneList::StartScene;
 class Scene
 {
 protected:
-  virtual void handleInput() = 0;
-  virtual void render() = 0;
+  virtual void handleInput() {};
+  virtual void render() {};
 
 public:
   virtual void setup() = 0;
@@ -751,6 +752,11 @@ public:
     lives = l;
   }
 
+  int getBulletsShot()
+  {
+    return bulletsShot;
+  }
+
   void move(int directionX)
   {
     if (directionX == -1 && posX < 3)
@@ -777,9 +783,37 @@ public:
   }
 };
 
+class ApiClient
+{
+private:
+  HTTPClient http;
+  WiFiClient wifiClient;
+  const String apiUrl = "http://spaceinvaders.requestcatcher.com/test";
+
+public:
+  void postScore(int score, int bulletsShot)
+  {
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      JsonDocument jsonDoc;
+      jsonDoc["score"] = score;
+      jsonDoc["bullets_shot"] = bulletsShot;
+
+      String jsonData;
+      serializeJson(jsonDoc, jsonData);
+
+      http.begin(wifiClient, apiUrl);
+      http.addHeader("Content-Type", "application/json");
+      http.POST(jsonData);
+      http.end();
+    }
+  };
+};
+
 class Game
 {
 private:
+  ApiClient apiClient;
   Player player;
   Drone drones[4][8];
   Bullet playerBullet;
@@ -888,8 +922,10 @@ private:
 public:
   void init()
   {
+    player.setScore(0);
     player.setPosition(58, 140);
     player.setLives(3);
+    playerBullet.disable();
     initDrones();
   }
 
@@ -956,6 +992,7 @@ public:
 
     if (isGameOver())
     {
+      apiClient.postScore(player.getScore(), player.getBulletsShot());
       currentGameScene = GameSceneList::GameOverScene;
     }
   }
@@ -1150,6 +1187,8 @@ void setupScreen()
 
 void setup()
 {
+  Serial.begin(9600);
+  WiFi.begin("", "");
   setupScreen();
   btnLeft.init();
   btnRight.init();
