@@ -631,11 +631,30 @@ public:
   virtual void draw() = 0;
 };
 
-class Bullet : public GameEntity
+class ActivatableEntity 
 {
-private:
-  bool isActive;
+  protected:
+    bool isActive;
 
+  public:
+    void disable()
+    {
+      isActive = false;
+    }
+  
+    void enable()
+    {
+      isActive = true;
+    }
+  
+    bool getActiveState()
+    {
+      return isActive;
+    }  
+};
+
+class Bullet : public GameEntity, public ActivatableEntity
+{
 public:
   Bullet()
   {
@@ -643,21 +662,6 @@ public:
     height = 6;
     speed = 5;
     isActive = false;
-  }
-
-  void disable()
-  {
-    isActive = false;
-  }
-
-  void activate()
-  {
-    isActive = true;
-  }
-
-  bool getActiveState()
-  {
-    return isActive;
   }
 
   void move(int directionX, int directionY)
@@ -673,11 +677,8 @@ public:
   }
 };
 
-class Drone : public GameEntity
+class Drone : public GameEntity, public ActivatableEntity
 {
-private:
-  bool isActive;
-
 public:
   Drone()
   {
@@ -687,26 +688,11 @@ public:
     isActive = false;
   }
 
-  void disable()
-  {
-    isActive = false;
-  }
-
-  void enable()
-  {
-    isActive = true;
-  }
-
-  bool getActiveState()
-  {
-    return isActive;
-  }
-
   void shoot(Bullet &bullet)
   {
     if (!bullet.getActiveState())
     {
-      bullet.activate();
+      bullet.enable();
       bullet.setPosition(posX + 5, posY + height);
     }
   }
@@ -771,7 +757,7 @@ public:
   {
     if (!bullet.getActiveState())
     {
-      bullet.activate();
+      bullet.enable();
       bullet.setPosition(posX + 2, posY - height);
       bulletsShot++;
     }
