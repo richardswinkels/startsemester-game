@@ -1177,11 +1177,30 @@ void setupScreen()
   tft.fillScreen(ST7735_BLACK);
 }
 
+void setupWifi()
+{
+  WiFi.begin("", "");
+
+  int attempts = 0;
+  
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("Connected to WiFi!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  }
+}
+
 void setup()
 {
   Serial.begin(9600);
-  WiFi.begin("GameNet", "SpaceInvadersR70Swinkels");
   setupScreen();
+  setupWifi();
   btnLeft.init();
   btnRight.init();
   btnShoot.init();
