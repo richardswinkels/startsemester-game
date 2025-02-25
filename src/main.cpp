@@ -564,7 +564,7 @@ protected:
 
 public:
   virtual void setup() = 0;
-  virtual void update() = 0;
+  virtual void loop() = 0;
 };
 
 class SceneManager
@@ -583,10 +583,10 @@ public:
     }
   }
 
-  void update()
+  void loop()
   {
     if (currentScene)
-      currentScene->update();
+      currentScene->loop();
   }
 };
 
@@ -738,14 +738,14 @@ public:
     lives = l;
   }
 
-  void setBulletsShot(int b)
-  {
-    bulletsShot = b;
-  }
-
   int getBulletsShot()
   {
     return bulletsShot;
+  }
+
+  void setBulletsShot(int b)
+  {
+    bulletsShot = b;
   }
 
   void move(int directionX)
@@ -910,6 +910,11 @@ private:
     }
   }
 
+  bool isGameOver()
+  {
+    return player.getLives() == 0;
+  }
+
 public:
   void init()
   {
@@ -919,11 +924,6 @@ public:
     player.setLives(3);
     playerBullet.disable();
     initDrones();
-  }
-
-  bool isGameOver()
-  {
-    return player.getLives() == 0;
   }
 
   void handleInput()
@@ -1071,7 +1071,7 @@ public:
     game.init();
   }
 
-  void update()
+  void loop()
   {
     handleInput();
     game.update();
@@ -1112,7 +1112,7 @@ public:
     canvas.drawRGBBitmap(16, 40, startMenuLogo, 94, 33);
   }
 
-  void update()
+  void loop()
   {
     handleInput();
     render();
@@ -1162,7 +1162,7 @@ public:
     canvas.drawRGBBitmap(16, 40, gameOverText, 94, 46);
   }
 
-  void update()
+  void loop()
   {
     handleInput();
     render();
@@ -1179,7 +1179,7 @@ void setupScreen()
 
 void setupWifi()
 {
-  WiFi.begin("", "");
+  WiFi.begin("Netlab-OIL430", "DesignChallenge");
 
   int attempts = 0;
   
@@ -1221,5 +1221,5 @@ void loop()
     break;
   }
 
-  sceneManager.update();
+  sceneManager.loop();
 }
