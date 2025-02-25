@@ -628,29 +628,37 @@ public:
     posY = y;
   }
 
+  bool collidesWith(GameEntity &gameEntity)
+  {
+    return getPosX() + getWidth() >= gameEntity.getPosX() &&
+           getPosX() <= gameEntity.getPosX() + gameEntity.getWidth() &&
+           getPosY() + getHeight() >= gameEntity.getPosY() + gameEntity.getHeight() &&
+           getPosY() <= gameEntity.getPosY() + gameEntity.getHeight();
+  }
+
   virtual void draw() = 0;
 };
 
-class ActivatableEntity 
+class ActivatableEntity
 {
-  protected:
-    bool isActive;
+protected:
+  bool isActive;
 
-  public:
-    void disable()
-    {
-      isActive = false;
-    }
-  
-    void enable()
-    {
-      isActive = true;
-    }
-  
-    bool getActiveState()
-    {
-      return isActive;
-    }  
+public:
+  void disable()
+  {
+    isActive = false;
+  }
+
+  void enable()
+  {
+    isActive = true;
+  }
+
+  bool getActiveState()
+  {
+    return isActive;
+  }
 };
 
 class Bullet : public GameEntity, public ActivatableEntity
@@ -851,6 +859,27 @@ private:
     }
   }
 
+  void updatePlayerBullet()
+  {
+    if (playerBullet.getActiveState())
+      playerBullet.move(0, 1);
+    if (playerBullet.getPosY() < 0)
+      playerBullet.disable();
+  }
+
+  void updateEnemyBullets()
+  {
+    for (int i = 0; i < 3; i++)
+    {
+      Bullet &bullet = enemyBullets[i];
+
+      if (bullet.getActiveState())
+        bullet.move(0, -1);
+      if (bullet.getPosY() > 160)
+        bullet.disable();
+    }
+  }
+
   Drone *getRandomActiveDrone()
   {
     uint activeDroneIndexes[32][2];
@@ -881,6 +910,41 @@ private:
     return &drones[randomRow][randomCol];
   }
 
+  void checkDroneBulletCollisions()
+  {
+    for (int row = 0; row < 4; row++)
+    {
+      for (int col = 0; col < 8; col++)
+      {
+        Drone &drone = drones[row][col];
+
+        if (drone.getActiveState() &&
+            playerBullet.getActiveState() &&
+            drone.collidesWith(playerBullet))
+        {
+          drone.disable();
+          playerBullet.disable();
+          player.setScore(player.getScore() + 10);
+        }
+      }
+    }
+  }
+
+  void checkPlayerBulletCollisions()
+  {
+    for (int i = 0; i < 3; i++)
+    {
+      Bullet &bullet = enemyBullets[i];
+
+      if (bullet.getActiveState() &&
+          bullet.collidesWith(player))
+      {
+        bullet.disable();
+        player.setLives(player.getLives() - 1);
+      }
+    }
+  }
+
   void shootEnemyBullets()
   {
     ulong currentMillis = millis();
@@ -908,6 +972,20 @@ private:
         }
       }
     }
+  }
+
+  bool allDronesDisabled()
+  {
+    int count = 0;
+    for (int row = 0; row < 4; row++)
+    {
+      for (int col = 0; col < 8; col++)
+      {
+        if (!drones[row][col].getActiveState())
+          count++;
+      }
+    }
+    return count == 32;
   }
 
   bool isGameOver()
@@ -946,38 +1024,14 @@ public:
 
   void update()
   {
-    if (playerBullet.getActiveState())
-      playerBullet.move(0, 1);
-    if (playerBullet.getPosY() < 0)
+    updatePlayerBullet();
+    updateEnemyBullets();
+
+    if (allDronesDisabled())
+    {
       playerBullet.disable();
-
-    for (int i = 0; i < 3; i++)
-    {
-      Bullet &bullet = enemyBullets[i];
-
-      if (bullet.getActiveState())
-        bullet.move(0, -1);
-      if (bullet.getPosY() > 160)
-        bullet.disable();
-    }
-
-    int count = 0;
-
-    for (int row = 0; row < 4; row++)
-    {
-      for (int col = 0; col < 8; col++)
-      {
-        if (!drones[row][col].getActiveState())
-          count++;
-      }
-    }
-
-    if (count == 32)
-    {
-      count = 0;
-      playerBullet.disable();
-      delay(500);
       initDrones();
+      delay(500);
     }
 
     shootEnemyBullets();
@@ -991,40 +1045,8 @@ public:
 
   void checkCollisions()
   {
-    for (int row = 0; row < 4; row++)
-    {
-      for (int col = 0; col < 8; col++)
-      {
-        Drone &drone = drones[row][col];
-
-        if (drone.getActiveState() &&
-            playerBullet.getActiveState() &&
-            playerBullet.getPosX() + playerBullet.getWidth() >= drone.getPosX() &&
-            playerBullet.getPosX() <= drone.getPosX() + drone.getWidth() &&
-            playerBullet.getPosY() + playerBullet.getHeight() >= drone.getPosY() &&
-            playerBullet.getPosY() <= drone.getPosY() + drone.getHeight())
-        {
-          drone.disable();
-          playerBullet.disable();
-          player.setScore(player.getScore() + 10);
-        }
-      }
-    }
-
-    for (int i = 0; i < 3; i++)
-    {
-      Bullet &bullet = enemyBullets[i];
-
-      if (bullet.getActiveState() &&
-          bullet.getPosX() + bullet.getWidth() >= player.getPosX() &&
-          bullet.getPosX() <= player.getPosX() + player.getWidth() &&
-          bullet.getPosY() + bullet.getHeight() >= player.getPosY() + player.getHeight() &&
-          bullet.getPosY() <= player.getPosY() + player.getHeight())
-      {
-        bullet.disable();
-        player.setLives(player.getLives() - 1);
-      }
-    }
+    checkDroneBulletCollisions();
+    checkPlayerBulletCollisions();
   }
 
   void render()
@@ -1179,17 +1201,19 @@ void setupScreen()
 
 void setupWifi()
 {
-  WiFi.begin("Netlab-OIL430", "DesignChallenge");
+  WiFi.begin("", "");
 
   int attempts = 0;
-  
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+
+  while (WiFi.status() != WL_CONNECTED && attempts < 20)
+  {
     delay(500);
     Serial.print(".");
     attempts++;
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED)
+  {
     Serial.println("Connected to WiFi!");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
