@@ -3,6 +3,8 @@
 #include <Adafruit_ST7735.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <SPI.h>
 
@@ -818,6 +820,7 @@ private:
   Bullet playerBullet;
   Bullet enemyBullets[4];
   ulong timeEllapsed;
+  bool isRunning;
 
   void initDrones()
   {
@@ -996,6 +999,7 @@ private:
 public:
   void init()
   {
+    isRunning = true;
     player.setBulletsShot(0);
     player.setScore(0);
     player.setPosition(58, 140);
@@ -1038,6 +1042,7 @@ public:
 
     if (isGameOver())
     {
+      isRunning = false;
       apiClient.postScore(player.getScore(), player.getBulletsShot());
       currentGameScene = GameSceneList::GameOverScene;
     }
@@ -1069,6 +1074,11 @@ public:
   Player *getPlayer()
   {
     return &player;
+  }
+
+  bool getRunningState()
+  {
+    return isRunning;
   }
 };
 
@@ -1193,6 +1203,8 @@ public:
 
 GameOverScene gameOverScene;
 
+AsyncWebServer server(80);
+
 void setupScreen()
 {
   tft.initR(INITR_18BLACKTAB);
@@ -1220,6 +1232,19 @@ void setupWifi()
   }
 }
 
+void handleGameStatusRequest()
+{
+  server.on("/api/game/status", HTTP_GET, [](AsyncWebServerRequest* request) {
+    JsonDocument jsonDoc;
+    jsonDoc["running_status"] = game.getRunningState();
+
+    String jsonData;
+    serializeJson(jsonDoc, jsonData);
+
+    request->send(200, "application/json", jsonData);
+  });
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -1228,6 +1253,9 @@ void setup()
   btnLeft.init();
   btnRight.init();
   btnShoot.init();
+
+  handleGameStatusRequest();
+  server.begin();
 }
 
 void loop()
