@@ -716,6 +716,7 @@ public:
 class Player : public GameEntity
 {
 private:
+  String name = "Anonymous";
   int score = 0;
   int lives = 0;
   int bulletsShot = 0;
@@ -758,6 +759,16 @@ public:
     bulletsShot = b;
   }
 
+  void setName(String n)
+  {
+    name = n;
+  }
+
+  String getName()
+  {
+    return name;
+  }
+
   void move(int directionX)
   {
     if (directionX == -1 && posX < 3)
@@ -792,11 +803,12 @@ private:
   const String apiUrl = "http://spaceinvaders.requestcatcher.com/test";
 
 public:
-  void postScore(int score, int bulletsShot)
+  void postScore(String playerName, int score, int bulletsShot)
   {
     if (WiFi.status() == WL_CONNECTED)
     {
       JsonDocument jsonDoc;
+      jsonDoc["player_name"] = playerName;
       jsonDoc["score"] = score;
       jsonDoc["bullets_shot"] = bulletsShot;
 
@@ -1042,8 +1054,8 @@ public:
 
     if (isGameOver())
     {
+      apiClient.postScore(player.getName(), player.getScore(), player.getBulletsShot());
       isRunning = false;
-      apiClient.postScore(player.getScore(), player.getBulletsShot());
       currentGameScene = GameSceneList::GameOverScene;
     }
   }
@@ -1213,7 +1225,8 @@ void setupScreen()
 
 void setupWifi()
 {
-  WiFi.begin("", "");
+  // WiFi.begin("Netlab-OIL430", "DesignChallenge");
+  WiFi.begin("GameNet", "SpaceInvadersR70Swinkels");
 
   int attempts = 0;
 
@@ -1232,17 +1245,44 @@ void setupWifi()
   }
 }
 
-void handleGameStatusRequest()
+void handlePlayerInputRequest()
 {
-  server.on("/api/game/status", HTTP_GET, [](AsyncWebServerRequest* request) {
-    JsonDocument jsonDoc;
-    jsonDoc["running_status"] = game.getRunningState();
+  server.on("/api/player", HTTP_POST, [](AsyncWebServerRequest *request) {},
+        NULL,
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            if (game.getRunningState())
+            {
+              request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Game is running\"}");
+              return;
+            }
 
-    String jsonData;
-    serializeJson(jsonDoc, jsonData);
+            JsonDocument jsonDoc;
+            DeserializationError error = deserializeJson(jsonDoc, data, len);
 
-    request->send(200, "application/json", jsonData);
-  });
+            if (error) {
+                request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+                return;
+            }
+
+            if (jsonDoc["name"].isNull())
+            {
+              request->send(422, "application/json", "{\"error\":\"Missing player name\"}");
+              return;
+            }
+            
+            String playerName = jsonDoc["name"];
+
+            if (playerName.length() < 1 || playerName.length() > 300) {
+              request->send(422, "application/json", "{\"error\":\"Player name must be between 1 and 300 characters\"}");
+              return;
+            }
+
+            Player* player = game.getPlayer();
+            player->setName(playerName);
+
+            request->send(200, "application/json", "{\"status\":\"success\"}");
+        }
+    );
 }
 
 void setup()
@@ -1254,7 +1294,7 @@ void setup()
   btnRight.init();
   btnShoot.init();
 
-  handleGameStatusRequest();
+  handlePlayerInputRequest();
   server.begin();
 }
 
