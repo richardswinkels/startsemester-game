@@ -641,7 +641,7 @@ public:
   virtual void draw() = 0;
 };
 
-class ActivatableEntity
+class ActivatableEntity : public GameEntity
 {
 protected:
   bool isActive;
@@ -663,7 +663,7 @@ public:
   }
 };
 
-class Bullet : public GameEntity, public ActivatableEntity
+class Bullet : public ActivatableEntity
 {
 public:
   Bullet()
@@ -687,7 +687,7 @@ public:
   }
 };
 
-class Drone : public GameEntity, public ActivatableEntity
+class Drone : public ActivatableEntity
 {
 public:
   Drone()
