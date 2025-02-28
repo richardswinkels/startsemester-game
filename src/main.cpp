@@ -1223,28 +1223,6 @@ void setupScreen()
   tft.fillScreen(ST7735_BLACK);
 }
 
-void setupWifi()
-{
-  // WiFi.begin("Netlab-OIL430", "DesignChallenge");
-  WiFi.begin("GameNet", "SpaceInvadersR70Swinkels");
-
-  int attempts = 0;
-
-  while (WiFi.status() != WL_CONNECTED && attempts < 20)
-  {
-    delay(500);
-    Serial.print(".");
-    attempts++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    Serial.println("Connected to WiFi!");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-  }
-}
-
 void handlePlayerInputRequest()
 {
   server.on("/api/player", HTTP_POST, [](AsyncWebServerRequest *request) {},
@@ -1289,7 +1267,9 @@ void setup()
 {
   Serial.begin(9600);
   setupScreen();
-  setupWifi();
+  
+  WiFi.begin("GameNet", "SpaceInvadersR70Swinkels");
+
   btnLeft.init();
   btnRight.init();
   btnShoot.init();
