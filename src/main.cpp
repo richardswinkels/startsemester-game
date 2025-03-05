@@ -1099,23 +1099,23 @@ Game game;
 class GameScene : public Scene
 {
 protected:
-  void handleInput()
+  void handleInput() override
   {
     game.handleInput();
   }
 
-  void render()
+  void render() override
   {
     game.render();
   }
 
 public:
-  void setup()
+  void setup() override
   {
     game.init();
   }
 
-  void loop()
+  void loop() override
   {
     handleInput();
     game.update();
@@ -1129,7 +1129,7 @@ GameScene gameScene;
 class StartGameScene : public Scene
 {
 protected:
-  void handleInput()
+  void handleInput() override
   {
     if (btnLeft.isPressed() ||
         btnRight.isPressed() ||
@@ -1139,13 +1139,13 @@ protected:
     }
   }
 
-  void render()
+  void render() override
   {
     tft.drawRGBBitmap(0, 0, canvas.getBuffer(), 128, 160);
   }
 
 public:
-  void setup()
+  void setup() override
   {
     canvas.fillScreen(ST7735_BLACK);
     canvas.fillRect(15, 100, 100, 30, ST7735_BLUE);
@@ -1156,7 +1156,7 @@ public:
     canvas.drawRGBBitmap(16, 40, startMenuLogo, 94, 33);
   }
 
-  void loop()
+  void loop() override
   {
     handleInput();
     render();
@@ -1168,7 +1168,7 @@ StartGameScene startGameScene;
 class GameOverScene : public Scene
 {
 protected:
-  void handleInput()
+  void handleInput() override
   {
     if (btnLeft.isPressed() ||
         btnRight.isPressed() ||
@@ -1178,7 +1178,7 @@ protected:
     }
   }
 
-  void render()
+  void render() override
   {
     tft.drawRGBBitmap(0, 0, canvas.getBuffer(), 128, 160);
   }
@@ -1195,7 +1195,7 @@ protected:
   }
 
 public:
-  void setup()
+  void setup() override
   {
     canvas.fillScreen(ST7735_BLACK);
     canvas.setTextColor(ST7735_WHITE);
@@ -1206,7 +1206,7 @@ public:
     canvas.drawRGBBitmap(16, 40, gameOverText, 94, 46);
   }
 
-  void loop()
+  void loop() override
   {
     handleInput();
     render();
