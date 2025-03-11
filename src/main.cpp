@@ -719,7 +719,7 @@ private:
   String name = "Anonymous";
   int score = 0;
   int lives = 0;
-  int bulletsShot = 0;
+  int bulletsUsed  = 0;
 
 public:
   Player()
@@ -749,14 +749,14 @@ public:
     lives = l;
   }
 
-  int getBulletsShot()
+  int getBulletsUsed()
   {
-    return bulletsShot;
+    return bulletsUsed;
   }
 
-  void setBulletsShot(int b)
+  void setBulletsUsed(int b)
   {
-    bulletsShot = b;
+    bulletsUsed = b;
   }
 
   void setName(String n)
@@ -785,7 +785,7 @@ public:
     {
       bullet.enable();
       bullet.setPosition(posX + 2, posY - height);
-      bulletsShot++;
+      bulletsUsed++;
     }
   }
 
@@ -800,17 +800,17 @@ class ApiClient
 private:
   HTTPClient http;
   WiFiClient wifiClient;
-  const String apiUrl = "http://spaceinvaders.requestcatcher.com/test";
+  const String apiUrl = "http://192.168.137.1:5000/api/scores";
 
 public:
-  void postScore(String playerName, int score, int bulletsShot)
+  void postScore(String playerName, int score, int bulletsUsed)
   {
     if (WiFi.status() == WL_CONNECTED)
     {
       JsonDocument jsonDoc;
       jsonDoc["player_name"] = playerName;
       jsonDoc["score"] = score;
-      jsonDoc["bullets_shot"] = bulletsShot;
+      jsonDoc["bullets_used"] = bulletsUsed;
 
       String jsonData;
       serializeJson(jsonDoc, jsonData);
@@ -1012,7 +1012,7 @@ public:
   void init()
   {
     isRunning = true;
-    player.setBulletsShot(0);
+    player.setBulletsUsed(0);
     player.setScore(0);
     player.setPosition(58, 140);
     player.setLives(3);
@@ -1054,7 +1054,7 @@ public:
 
     if (isGameOver())
     {
-      apiClient.postScore(player.getName(), player.getScore(), player.getBulletsShot());
+      apiClient.postScore(player.getName(), player.getScore(), player.getBulletsUsed());
       isRunning = false;
       currentGameScene = GameSceneList::GameOverScene;
     }
@@ -1201,8 +1201,10 @@ public:
     canvas.setTextColor(ST7735_WHITE);
     canvas.setTextSize(1);
     int score = game.getPlayer()->getScore();
-    drawCenteredText("Score", 112);
-    drawCenteredText(String(score).c_str(), 128);
+    drawCenteredText("Player name", 100);
+    drawCenteredText(game.getPlayer()->getName().c_str(), 110);
+    drawCenteredText("Score", 125);
+    drawCenteredText(String(score).c_str(), 135);
     canvas.drawRGBBitmap(16, 40, gameOverText, 94, 46);
   }
 
@@ -1225,9 +1227,8 @@ void setupScreen()
 
 void handlePlayerInputRequest()
 {
-  server.on("/api/player", HTTP_POST, [](AsyncWebServerRequest *request) {},
-        NULL,
-        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+  server.on("/api/player", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+            {
             if (game.getRunningState())
             {
               request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Game is running\"}");
@@ -1258,17 +1259,15 @@ void handlePlayerInputRequest()
             Player* player = game.getPlayer();
             player->setName(playerName);
 
-            request->send(200, "application/json", "{\"status\":\"success\"}");
-        }
-    );
+            request->send(200, "application/json", "{\"status\":\"success\"}"); });
 }
 
 void setup()
 {
   Serial.begin(9600);
   setupScreen();
-  
-  WiFi.begin("GameNet", "SpaceInvadersR70Swinkels");
+
+  WiFi.begin("", "");
 
   btnLeft.init();
   btnRight.init();
